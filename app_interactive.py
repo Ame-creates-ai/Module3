@@ -6,20 +6,27 @@ from io import BytesIO
 import requests
 
 # --- CONFIGURATION ---
-# CORRECT URL (Points to raw image data)
-WATERMARK_URL = "https://raw.githubusercontent.com/Ame-creates-ai/Module3/main/Module3/MySignature.jpg"
+# We list BOTH possible raw URLs to be safe
+WATERMARK_URLS = [
+    "https://raw.githubusercontent.com/Ame-creates-ai/Module3/main/Module3/MySignature.jpg",   # Try 'main' branch
+    "https://raw.githubusercontent.com/Ame-creates-ai/Module3/master/Module3/MySignature.jpg" # Try 'master' branch
+]
 
 # --- HELPER: DOWNLOAD WATERMARK ---
 @st.cache_resource
-def download_watermark(url):
-    try:
-        response = requests.get(url)
-        if response.status_code == 200:
-            image_array = np.asarray(bytearray(response.content), dtype=np.uint8)
-            return cv2.imdecode(image_array, 1)
-        return None
-    except:
-        return None
+def download_watermark():
+    for url in WATERMARK_URLS:
+        try:
+            print(f"Trying to fetch: {url}") # Logs to terminal for debugging
+            response = requests.get(url)
+            if response.status_code == 200:
+                image_array = np.asarray(bytearray(response.content), dtype=np.uint8)
+                img = cv2.imdecode(image_array, 1)
+                if img is not None:
+                    return img
+        except:
+            continue
+    return None
 
 # --- HELPER: PREPARE WATERMARK (Notebook Logic) ---
 def prepare_watermark_opencv(watermark_bgr):
@@ -44,10 +51,12 @@ def prepare_watermark_opencv(watermark_bgr):
 
 def apply_bottom_right_watermark(base_img_bgr):
     # Download & Prepare
-    wm_src = download_watermark(WATERMARK_URL)
+    wm_src = download_watermark()
+    
     if wm_src is None:
-        # Fallback text if URL fails
-        cv2.putText(base_img_bgr, "Sig Not Found", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,0,255), 2)
+        # Fallback text if ALL URLs fail
+        h, w = base_img_bgr.shape[:2]
+        cv2.putText(base_img_bgr, "Sig Not Found", (int(w/2)-100, int(h/2)), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,0,255), 2)
         return base_img_bgr
     
     wm_bgra = prepare_watermark_opencv(wm_src)
@@ -81,7 +90,7 @@ def apply_bottom_right_watermark(base_img_bgr):
             for c in range(3):
                 roi[:, :, c] = (alpha_wm * wm_resized[:, :, c] + alpha_bg * roi[:, :, c])
             
-            # Update Alpha channel of ROI to be opaque where signature is
+            # Update Alpha channel of ROI
             roi[:, :, 3] = 255
             
             base_bgra[y:y+new_h, x:x+new_w] = roi
@@ -155,6 +164,15 @@ def tab_alpha():
 # --- MAIN ---
 def main():
     st.set_page_config(layout="wide")
+    
+    # --- DEBUGGING CHECK ---
+    # This will show a small status message at the top of the app
+    wm_check = download_watermark()
+    if wm_check is None:
+        st.error("❌ CRITICAL ERROR: Signature could not be downloaded from ANY configured URL.")
+    else:
+        st.success("✅ Signature loaded successfully from GitHub!")
+
     t1, t2, t3 = st.tabs(["Thresholding", "Logical Operations", "Alpha Channel"])
     with t1: tab_thresholding()
     with t2: tab_logical()
