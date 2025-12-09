@@ -6,7 +6,7 @@ from io import BytesIO
 import requests
 
 # --- CONFIGURATION ---
-# Points to: https://github.com/Ame-creates-ai/Module3 -> Module3/MySignature.jpg
+# CORRECT URL (Points to raw image data)
 WATERMARK_URL = "https://raw.githubusercontent.com/Ame-creates-ai/Module3/main/Module3/MySignature.jpg"
 
 # --- HELPER: DOWNLOAD WATERMARK ---
